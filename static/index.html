@@ -164,25 +164,41 @@
     const ROLE_KEY = "public_chat_role";
     let currentRole = localStorage.getItem(ROLE_KEY) || "mahasiswa";
 
-    function getPublicHistory() {
+    function publicHistoryKey(role = currentRole) {
+      return `${PUBLIC_CHAT_KEY}:${role}`;
+    }
+
+    function getPublicHistory(role = currentRole) {
       try {
-        return JSON.parse(localStorage.getItem(PUBLIC_CHAT_KEY) || "[]");
+        return JSON.parse(localStorage.getItem(publicHistoryKey(role)) || "[]");
       } catch {
         return [];
       }
     }
 
-    function savePublicHistory(items) {
-      localStorage.setItem(PUBLIC_CHAT_KEY, JSON.stringify(items));
-      if (items.length > 0) clearChatBtn.classList.remove("hidden");
-      else clearChatBtn.classList.add("hidden");
+    function savePublicHistory(items, role = currentRole) {
+      localStorage.setItem(publicHistoryKey(role), JSON.stringify(items));
+      if (role === currentRole) {
+        if (items.length > 0) clearChatBtn.classList.remove("hidden");
+        else clearChatBtn.classList.add("hidden");
+      }
     }
 
     window.clearPublicChatHistory = function () {
-      localStorage.removeItem(PUBLIC_CHAT_KEY);
+      localStorage.removeItem(publicHistoryKey());
       clearChatBtn.classList.add("hidden");
       chatBox.innerHTML = welcomeHtml;
     };
+
+    function restorePublicChat() {
+      chatBox.innerHTML = welcomeHtml;
+      const history = getPublicHistory();
+      clearChatBtn.classList.toggle("hidden", history.length === 0);
+      history.forEach((item) => {
+        if (item.role === "user") appendUserMessage(item.text);
+        else appendBotMessage(item.text, item.sources || []);
+      });
+    }
 
     function escapeHtml(str) {
       return String(str)
@@ -435,10 +451,11 @@
       e.preventDefault();
       const question = questionInput.value.trim();
       if (!question) return;
+      const requestRole = currentRole;
 
-      const history = getPublicHistory();
+      const history = getPublicHistory(requestRole);
       history.push({ role: "user", text: question });
-      savePublicHistory(history);
+      savePublicHistory(history, requestRole);
 
       appendUserMessage(question);
       questionInput.value = "";
@@ -449,25 +466,25 @@
         const res = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ question, role: currentRole }),
+          body: JSON.stringify({ question, role: requestRole }),
         });
         const data = await res.json();
         removeLoading();
         const botAnswer = !res.ok ? (data.detail || "Terjadi kesalahan pada server.") : data.answer;
         const botSources = !res.ok ? [] : (data.sources || []);
-        appendBotMessage(botAnswer, botSources);
+        if (currentRole === requestRole) appendBotMessage(botAnswer, botSources);
 
-        const updated = getPublicHistory();
+        const updated = getPublicHistory(requestRole);
         updated.push({ role: "bot", text: botAnswer, sources: botSources });
-        savePublicHistory(updated);
+        savePublicHistory(updated, requestRole);
       } catch (err) {
         removeLoading();
         const errText = "Gagal terhubung ke server backend.";
-        appendBotMessage(errText);
+        if (currentRole === requestRole) appendBotMessage(errText);
 
-        const updated = getPublicHistory();
+        const updated = getPublicHistory(requestRole);
         updated.push({ role: "bot", text: errText, sources: [] });
-        savePublicHistory(updated);
+        savePublicHistory(updated, requestRole);
       } finally {
         sendBtn.disabled = false;
         questionInput.focus();
@@ -538,31 +555,21 @@
           .map((n) => `<option value="${escapeHtml(n)}" ${n === currentRole ? "selected" : ""}>${escapeHtml(capitalize(n))}</option>`)
           .join("");
         localStorage.setItem(ROLE_KEY, currentRole);
+        restorePublicChat();
       } catch {
         roleSelect.innerHTML = '<option value="mahasiswa">Mahasiswa</option>';
         currentRole = "mahasiswa";
+        restorePublicChat();
       }
     }
 
     roleSelect.addEventListener("change", () => {
       currentRole = roleSelect.value;
       localStorage.setItem(ROLE_KEY, currentRole);
-      // Ganti role = mulai percakapan baru agar jawaban/sumber role lama tidak tercampur.
-      clearPublicChatHistory();
+      restorePublicChat();
     });
 
     loadRoles();
-
-    (function restorePublicChat() {
-      const history = getPublicHistory();
-      if (history.length > 0) {
-        clearChatBtn.classList.remove("hidden");
-        history.forEach((item) => {
-          if (item.role === "user") appendUserMessage(item.text);
-          else appendBotMessage(item.text, item.sources || []);
-        });
-      }
-    })();
   </script>
 </body>
 </html>

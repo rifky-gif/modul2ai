@@ -13,8 +13,10 @@ uvicorn app.main:app --reload
 Saat pertama kali jalan, `dataset/` otomatis diindeks:
 | Lokasi | Role yang boleh akses |
 | --- | --- |
-| `dataset/*` (SSC, SK TAK 2022, SK TAK 2025) | `mahasiswa` dan `dosen` |
+| `dataset/*` (SSC, SK TAK 2022, SK TAK 2025; data mahasiswa/umum) | `mahasiswa` dan `dosen` |
 | `dataset/dosen/Panduan_Internal_Dosen.txt` | **hanya `dosen`** |
+
+Dengan demikian, mahasiswa hanya melihat data mahasiswa/umum, sedangkan dosen dapat melihat data mahasiswa/umum dan data khusus dosen. Riwayat percakapan chat juga disimpan terpisah untuk setiap role.
 
 Jika `modul2ai.db` sudah ada, seeding dilewati. Hapus file tersebut dan restart untuk mengulang.
 
