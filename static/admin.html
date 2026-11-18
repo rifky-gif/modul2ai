@@ -1,0 +1,1458 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login Admin — Chatbot RAG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
+  <style>
+    .bg-grid {
+      background-image: radial-gradient(rgba(99, 102, 241, 0.08) 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+  </style>
+</head>
+<body class="bg-[#FAFAFB] text-zinc-900 font-sans antialiased min-h-screen">
+
+  <!-- Toast Notification -->
+  <div id="toast" class="hidden fixed bottom-5 right-5 z-50 flex items-center gap-2 bg-zinc-900 text-white text-xs font-medium px-4 py-2.5 rounded-xl shadow-lg">
+    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+    <span id="toastText"></span>
+  </div>
+
+  <!-- Chunks Modal Popup -->
+  <div id="chunksModal" class="hidden fixed inset-0 z-50 bg-zinc-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white border border-zinc-200 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[82vh] flex flex-col overflow-hidden">
+      <div class="px-5 py-4 border-b border-zinc-100 flex items-center justify-between gap-3">
+        <div class="min-w-0">
+          <h3 id="modalDocTitle" class="text-sm font-semibold text-zinc-900 truncate">Detail Chunks</h3>
+          <p id="modalDocMeta" class="text-xs text-zinc-500 mt-0.5"></p>
+        </div>
+        <button type="button" onclick="closeChunksModal()" class="text-zinc-400 hover:text-zinc-700 p-1.5 rounded-lg hover:bg-zinc-100 transition cursor-pointer">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <div id="modalChunksList" class="p-5 overflow-y-auto overflow-x-hidden space-y-3 bg-zinc-50/50 flex-1"></div>
+      <div class="px-5 py-3 border-t border-zinc-100 bg-white flex justify-end">
+        <button type="button" onclick="closeChunksModal()" class="text-xs font-medium text-zinc-700 bg-zinc-100 hover:bg-zinc-200 px-4 py-2 rounded-xl transition cursor-pointer">
+          Tutup
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chatbot Modal Popup -->
+  <div id="chatModal" class="hidden fixed inset-0 z-50 bg-zinc-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white border border-zinc-200 rounded-2xl shadow-2xl w-full max-w-2xl h-[82vh] flex flex-col overflow-hidden">
+      <div class="px-5 py-3.5 border-b border-zinc-100 flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2.5 min-w-0">
+          <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white flex items-center justify-center shadow-xs shrink-0">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+            </svg>
+          </div>
+          <div class="min-w-0">
+            <h3 class="text-sm font-semibold text-zinc-900 truncate">Chatbot RAG</h3>
+            <p class="text-[11px] text-zinc-500">Uji coba per role (pilih role di kanan)</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-1.5 shrink-0">
+          <select id="adminChatRole" title="Uji chatbot sebagai role"
+            class="text-[11px] font-medium text-zinc-700 bg-white border border-zinc-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer">
+            <option value="mahasiswa">mahasiswa</option>
+          </select>
+          <button type="button" onclick="startNewAdminChat()" class="text-[11px] font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1.5 rounded-lg transition cursor-pointer">
+            + Chat Baru
+          </button>
+          <button type="button" id="toggleHistoryBtn" onclick="toggleAdminHistoryView()" class="text-[11px] font-medium text-zinc-600 hover:text-zinc-900 bg-zinc-100 hover:bg-zinc-200/80 px-2.5 py-1.5 rounded-lg transition cursor-pointer">
+            Riwayat
+          </button>
+          <button type="button" onclick="closeChatModal()" class="text-zinc-400 hover:text-zinc-700 p-1.5 rounded-lg hover:bg-zinc-100 transition cursor-pointer">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Riwayat Chat Panel (Hidden by default) -->
+      <div id="adminHistoryPanel" class="hidden flex-1 p-5 overflow-y-auto bg-zinc-50/50 space-y-2.5"></div>
+
+      <div id="adminChatBox" class="flex-1 p-5 overflow-y-auto overflow-x-hidden space-y-4 bg-zinc-50/50"></div>
+
+      <div id="adminChatFooter" class="p-3.5 border-t border-zinc-100 bg-white">
+        <form id="adminChatForm" class="bg-zinc-50 border border-zinc-200/90 rounded-xl p-1.5 flex items-center gap-2 focus-within:bg-white focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-400 transition">
+          <input
+            id="adminQuestionInput"
+            type="text"
+            placeholder="Tulis pertanyaan untuk menguji chatbot..."
+            autocomplete="off"
+            class="flex-1 px-3 py-1.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none bg-transparent"
+            required
+          />
+          <button
+            id="adminSendBtn"
+            type="submit"
+            class="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-xs font-medium px-3.5 py-2 rounded-lg shadow-xs transition cursor-pointer"
+          >
+            <span>Kirim</span>
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
+            </svg>
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Tracking Kuota Groq API -->
+  <div id="quotaModal" class="hidden fixed inset-0 z-50 bg-zinc-950/40 backdrop-blur-[2px] flex items-center justify-center p-4">
+    <div class="bg-white border border-zinc-200 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
+      <div class="px-5 py-4 border-b border-zinc-100 flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2.5 min-w-0">
+          <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+          </div>
+          <div class="min-w-0">
+            <h3 class="text-sm font-semibold text-zinc-900">Tracking Kuota Groq API</h3>
+            <p id="quotaModelInfo" class="text-xs text-zinc-500 mt-0.5 truncate">Memuat status...</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-1.5 shrink-0">
+          <button type="button" onclick="loadGroqQuota()" class="text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1.5 rounded-lg transition cursor-pointer">
+            Refresh
+          </button>
+          <button type="button" onclick="closeQuotaModal()" class="text-zinc-400 hover:text-zinc-700 p-1.5 rounded-lg hover:bg-zinc-100 transition cursor-pointer">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div id="quotaContent" class="p-5 overflow-y-auto space-y-4 bg-zinc-50/40">
+        <div class="text-center text-xs text-zinc-400 py-8">Memuat data kuota...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Edit Role -->
+  <div id="roleEditModal" class="hidden fixed inset-0 z-50 bg-zinc-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white border border-zinc-200 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+      <div class="px-5 py-4 border-b border-zinc-100">
+        <h3 class="text-sm font-semibold text-zinc-900">Ubah Role</h3>
+      </div>
+      <div class="p-5 space-y-3">
+        <input type="hidden" id="editRoleId" />
+        <div>
+          <label class="block text-xs font-medium text-zinc-700 mb-1.5">Nama Role</label>
+          <input id="editRoleName" type="text" maxlength="30"
+            class="w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm bg-zinc-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-zinc-700 mb-1.5">Deskripsi</label>
+          <input id="editRoleDesc" type="text"
+            class="w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm bg-zinc-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition" />
+        </div>
+        <div id="editRoleError" class="hidden text-xs bg-red-50 text-red-700 border border-red-200 rounded-xl p-2.5"></div>
+      </div>
+      <div class="px-5 py-3 border-t border-zinc-100 bg-white flex justify-end gap-2">
+        <button type="button" onclick="closeRoleEdit()" class="text-xs font-medium text-zinc-700 bg-zinc-100 hover:bg-zinc-200 px-4 py-2 rounded-xl transition cursor-pointer">Batal</button>
+        <button type="button" onclick="saveRoleEdit()" class="text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-xl transition cursor-pointer">Simpan</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Role Akses Dokumen -->
+  <div id="docRolesModal" class="hidden fixed inset-0 z-50 bg-zinc-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white border border-zinc-200 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+      <div class="px-5 py-4 border-b border-zinc-100">
+        <h3 class="text-sm font-semibold text-zinc-900">Ubah Akses Role Dokumen</h3>
+        <p id="docRolesTitle" class="text-xs text-zinc-500 mt-0.5 break-words"></p>
+      </div>
+      <div class="p-5">
+        <input type="hidden" id="docRolesDocId" />
+        <div id="docRolesChecks" class="flex flex-wrap gap-2"></div>
+        <div id="docRolesError" class="hidden mt-3 text-xs bg-red-50 text-red-700 border border-red-200 rounded-xl p-2.5"></div>
+      </div>
+      <div class="px-5 py-3 border-t border-zinc-100 bg-white flex justify-end gap-2">
+        <button type="button" onclick="closeDocRoles()" class="text-xs font-medium text-zinc-700 bg-zinc-100 hover:bg-zinc-200 px-4 py-2 rounded-xl transition cursor-pointer">Batal</button>
+        <button type="button" onclick="saveDocRoles()" class="text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-xl transition cursor-pointer">Simpan</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Login Section -->
+  <section id="loginSection" class="min-h-screen bg-grid flex items-center justify-center p-4">
+    <div class="bg-white border border-zinc-200/80 rounded-2xl shadow-xl shadow-zinc-200/40 w-full max-w-sm p-7">
+      <div class="flex items-center gap-3 mb-5">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white flex items-center justify-center shadow-sm shadow-indigo-500/25">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-base font-semibold tracking-tight text-zinc-900">Login Admin</h1>
+          <p class="text-xs text-zinc-500">Chatbot RAG</p>
+        </div>
+      </div>
+
+      <div id="loginError" class="hidden mb-4 text-xs bg-red-50 text-red-700 border border-red-200 rounded-xl p-3"></div>
+
+      <form id="loginForm" class="space-y-3.5">
+        <div>
+          <label class="block text-xs font-medium text-zinc-700 mb-1.5">Username</label>
+          <input id="loginUsername" type="text" placeholder="admin" required
+            class="w-full border border-zinc-200 rounded-xl px-3.5 py-2.5 text-sm bg-zinc-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-zinc-700 mb-1.5">Password</label>
+          <input id="loginPassword" type="password" placeholder="••••••••" required
+            class="w-full border border-zinc-200 rounded-xl px-3.5 py-2.5 text-sm bg-zinc-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition" />
+        </div>
+        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium py-2.5 rounded-xl shadow-xs transition cursor-pointer">
+          Masuk ke Dashboard
+        </button>
+      </form>
+
+      <div class="mt-4 bg-zinc-50 border border-zinc-200/70 rounded-xl px-3 py-2 text-[11px] text-zinc-500 flex items-center justify-between">
+        <span>Akun default:</span>
+        <code class="text-zinc-700 font-medium">admin / admin123</code>
+      </div>
+
+      <div class="mt-5 pt-4 border-t border-zinc-100 text-center">
+        <a href="/" class="text-xs text-zinc-500 hover:text-indigo-600 transition font-medium">Kembali ke Halaman Chatbot</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Dashboard Layout (Sidebar + Main) -->
+  <section id="dashboardSection" class="hidden min-h-screen flex flex-col md:flex-row">
+    <!-- Sidebar -->
+    <aside class="w-full md:w-64 bg-white border-b md:border-b-0 md:border-r border-zinc-200/80 flex flex-col shrink-0">
+      <div class="h-14 px-5 flex items-center gap-2.5 border-b border-zinc-100">
+        <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 text-white flex items-center justify-center shadow-xs">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+          </svg>
+        </div>
+        <span class="text-sm font-semibold tracking-tight text-zinc-900">Admin Panel</span>
+      </div>
+
+      <nav class="p-3 space-y-1 flex-1">
+        <div class="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Workspace</div>
+        <a href="#knowledge" class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium bg-indigo-50/80 text-indigo-700">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+          </svg>
+          Knowledge Base
+        </a>
+        <button type="button" onclick="openChatModal()" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-zinc-600 hover:bg-zinc-100/80 hover:text-zinc-900 transition cursor-pointer">
+          <svg class="w-4 h-4 text-zinc-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+          </svg>
+          Buka Chatbot
+        </button>
+        <button type="button" onclick="openQuotaModal()" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-zinc-600 hover:bg-zinc-100/80 hover:text-zinc-900 transition cursor-pointer">
+          <svg class="w-4 h-4 text-zinc-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+          Kuota Groq API
+        </button>
+      </nav>
+
+      <div class="p-3 border-t border-zinc-100 flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2 min-w-0">
+          <div class="w-7 h-7 rounded-full bg-zinc-900 text-white text-[11px] font-semibold flex items-center justify-center shrink-0">A</div>
+          <div class="min-w-0">
+            <div class="text-xs font-medium text-zinc-800 truncate">Admin SSC</div>
+            <div class="text-[10px] text-emerald-600 font-medium">● Online</div>
+          </div>
+        </div>
+        <button id="logoutBtn" class="text-xs font-medium text-zinc-500 hover:text-red-600 px-2 py-1 rounded-lg hover:bg-red-50 transition cursor-pointer">
+          Logout
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 p-5 sm:p-8 max-w-6xl w-full space-y-6">
+      <div>
+        <h1 class="text-xl font-semibold tracking-tight text-zinc-900">Knowledge Base</h1>
+        <p class="text-xs text-zinc-500 mt-0.5">Unggah dan kelola dokumen referensi untuk Chatbot RAG.</p>
+      </div>
+
+      <!-- KPI Cards (2 Columns) -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="bg-white border border-zinc-200/80 rounded-2xl p-4 shadow-[0_1px_2px_rgba(0,0,0,0.03)] flex items-center justify-between">
+          <div>
+            <div class="text-xs font-medium text-zinc-500">Total Dokumen</div>
+            <div id="statDocs" class="text-2xl font-semibold text-zinc-900 mt-1">0</div>
+          </div>
+          <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          </div>
+        </div>
+
+        <div class="bg-white border border-zinc-200/80 rounded-2xl p-4 shadow-[0_1px_2px_rgba(0,0,0,0.03)] flex items-center justify-between">
+          <div>
+            <div class="text-xs font-medium text-zinc-500">Chunks Terindeks</div>
+            <div id="statChunks" class="text-2xl font-semibold text-zinc-900 mt-1">0</div>
+          </div>
+          <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Upload & Documents Grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Left: Upload Form -->
+        <div class="lg:col-span-5 space-y-6">
+        <div class="bg-white border border-zinc-200/80 rounded-2xl p-5 shadow-[0_1px_2px_rgba(0,0,0,0.03)] h-fit">
+          <h2 class="text-sm font-semibold text-zinc-900">Upload Dokumen RAG</h2>
+          <p class="text-xs text-zinc-500 mt-0.5 mb-4">Dokumen akan diekstrak, di-chunking, dan diindeks ke database.</p>
+
+          <div id="uploadMsg" class="hidden mb-4 text-xs rounded-xl p-3"></div>
+
+          <form id="uploadForm" class="space-y-4">
+            <div>
+              <label class="block text-xs font-medium text-zinc-700 mb-1.5">Judul Dokumen (opsional)</label>
+              <input id="docTitle" type="text" placeholder="Misal: Pedoman TAK 2025"
+                class="w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm bg-zinc-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition" />
+            </div>
+
+            <!-- Custom Dropzone -->
+            <div>
+              <label class="block text-xs font-medium text-zinc-700 mb-1.5">File Dokumen (PDF, DOCX, XLSX, CSV, TXT)</label>
+              <label for="docFile" class="flex flex-col items-center justify-center border-2 border-dashed border-zinc-200 hover:border-indigo-400 bg-zinc-50/60 hover:bg-indigo-50/30 rounded-xl p-5 cursor-pointer transition text-center">
+                <svg class="w-6 h-6 text-zinc-400 mb-1.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+                <span id="fileLabel" class="text-xs font-medium text-zinc-600">Klik untuk pilih file PDF, DOCX, XLSX, CSV, atau TXT</span>
+                <input id="docFile" type="file" accept=".pdf,.docx,.xlsx,.txt,.md,.csv" required class="hidden" />
+              </label>
+            </div>
+
+            <!-- Pilih role pemilik akses dokumen -->
+            <div>
+              <label class="block text-xs font-medium text-zinc-700 mb-1.5">Role yang Boleh Mengakses</label>
+              <div id="uploadRoleChecks" class="flex flex-wrap gap-2"></div>
+              <p class="text-[11px] text-zinc-400 mt-1.5">Pilih minimal satu role. Role lain tidak akan dapat membaca dokumen ini.</p>
+            </div>
+
+            <button id="uploadBtn" type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-medium px-5 py-2.5 rounded-xl shadow-xs transition cursor-pointer">
+              Upload &amp; Indeks Dokumen
+            </button>
+          </form>
+        </div>
+
+        <!-- Manajemen Role -->
+        <div class="bg-white border border-zinc-200/80 rounded-2xl p-5 shadow-[0_1px_2px_rgba(0,0,0,0.03)] h-fit">
+          <h2 class="text-sm font-semibold text-zinc-900">Manajemen Role</h2>
+          <p class="text-xs text-zinc-500 mt-0.5 mb-4">Tambah, ubah, atau hapus role pengguna chatbot.</p>
+
+          <div id="roleMsg" class="hidden mb-3 text-xs rounded-xl p-3"></div>
+          <div id="roleList" class="divide-y divide-zinc-100 mb-4"></div>
+
+          <form id="roleForm" class="space-y-2.5 pt-4 border-t border-zinc-100">
+            <input id="roleName" type="text" placeholder="Nama role baru, misal: staf" maxlength="30" required
+              class="w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm bg-zinc-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition" />
+            <input id="roleDesc" type="text" placeholder="Deskripsi (opsional)"
+              class="w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm bg-zinc-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition" />
+            <button type="submit" class="w-full bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-medium px-5 py-2.5 rounded-xl shadow-xs transition cursor-pointer">
+              Tambah Role
+            </button>
+          </form>
+        </div>
+        </div>
+
+        <!-- Right: Document List -->
+        <div class="lg:col-span-7 bg-white border border-zinc-200/80 rounded-2xl p-5 shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
+          <h2 class="text-sm font-semibold text-zinc-900 mb-3">Daftar Dokumen Terindeks</h2>
+          <div id="docList" class="divide-y divide-zinc-100"></div>
+        </div>
+      </div>
+    </main>
+  </section>
+
+  <script>
+    const loginSection = document.getElementById("loginSection");
+    const dashboardSection = document.getElementById("dashboardSection");
+    const loginForm = document.getElementById("loginForm");
+    const loginError = document.getElementById("loginError");
+    const logoutBtn = document.getElementById("logoutBtn");
+    const docList = document.getElementById("docList");
+    const uploadMsg = document.getElementById("uploadMsg");
+    const docFileInput = document.getElementById("docFile");
+    const fileLabel = document.getElementById("fileLabel");
+    const toast = document.getElementById("toast");
+    const toastText = document.getElementById("toastText");
+    let allRoles = [];
+    let currentDocs = [];
+    const PROTECTED_ROLE = "mahasiswa";
+
+    docFileInput.addEventListener("change", () => {
+      if (docFileInput.files && docFileInput.files[0]) {
+        const f = docFileInput.files[0];
+        fileLabel.textContent = `${f.name} (${Math.round(f.size / 1024)} KB)`;
+        fileLabel.classList.add("text-indigo-700");
+      } else {
+        fileLabel.textContent = "Klik untuk pilih file PDF, DOCX, XLSX, CSV, atau TXT";
+        fileLabel.classList.remove("text-indigo-700");
+      }
+    });
+
+    function getToken() {
+      return localStorage.getItem("admin_token") || "";
+    }
+
+    function showToast(msg) {
+      toastText.textContent = msg;
+      toast.classList.remove("hidden");
+      setTimeout(() => toast.classList.add("hidden"), 2800);
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function formatMarkdown(text) {
+      const escaped = escapeHtml(text || "");
+      const lines = escaped.split(/\r?\n/);
+      let html = "";
+      let inUl = false;
+      let inOl = false;
+
+      function cleanLatex(expr) {
+        return expr
+          .replace(/\\left\s*([(\[{|])/g, "$1")
+          .replace(/\\right\s*([)\]}|])/g, "$1")
+          .replace(/\\frac\s*\{([^{}]+)\}\s*\{([^{}]+)\}/g, "$1 / $2")
+          .replace(/\\times/g, "×")
+          .replace(/\\div/g, "÷")
+          .replace(/\\cdot/g, "·")
+          .replace(/\\pm/g, "±")
+          .replace(/\\leq/g, "≤")
+          .replace(/\\geq/g, "≥")
+          .replace(/\\neq/g, "≠")
+          .replace(/\\approx/g, "≈")
+          .replace(/\\%/g, "%")
+          .replace(/_\{([^{}]+)\}/g, "$1")
+          .replace(/\^\{([^{}]+)\}/g, "^$1")
+          .replace(/\(\s+/g, "(")
+          .replace(/\s+\)/g, ")")
+          .replace(/\s{2,}/g, " ")
+          .trim();
+      }
+
+      function inlineFormat(s) {
+        const links = [];
+        const stashLink = (href, label, external = true) => {
+          const idx = links.length;
+          const attrs = external ? ' target="_blank" rel="noopener noreferrer"' : "";
+          links.push(`<a href="${href}"${attrs} class="text-indigo-600 hover:underline break-all">${label}</a>`);
+          return `\u0000LINK${idx}\u0000`;
+        };
+
+        let out = s
+          .replace(/\[([^\]]+)\]\(((?:https?:\/\/|mailto:)[^\s)]+)\)/g, (_, label, url) =>
+            stashLink(url, label, url.startsWith("http"))
+          )
+          .replace(/(^|[\s(>])(https?:\/\/[^\s<)]+)/g, (_, pre, url) => {
+            const cleanUrl = url.replace(/[.,;:!?]+$/, "");
+            const trail = url.slice(cleanUrl.length);
+            return pre + stashLink(cleanUrl, cleanUrl, true) + trail;
+          })
+          .replace(/(^|[\s(>])([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g, (_, pre, email) =>
+            pre + stashLink(`mailto:${email}`, email, false)
+          )
+          .replace(/(^|[\s(>])((?:linktr\.ee|(?:[a-zA-Z0-9-]+\.)+(?:ac\.id|id|com|org|edu|net))(?:\/[^\s<)]*)?)/g, (_, pre, domainUrl) => {
+            const cleanUrl = domainUrl.replace(/[.,;:!?]+$/, "");
+            const trail = domainUrl.slice(cleanUrl.length);
+            return pre + stashLink(`https://${cleanUrl}`, cleanUrl, true) + trail;
+          })
+          .replace(/\*\*([^*]+)\*\*/g, '<strong class="font-semibold text-zinc-900">$1</strong>')
+          .replace(/(^|[^\*])\*([^*\n]+)\*/g, '$1$2')
+          .replace(/`([^`]+)`/g, '<code class="bg-zinc-100 text-zinc-800 px-1 py-0.5 rounded text-[11px]">$1</code>')
+          .replace(/\$\$([^$]+)\$\$/g, (_, math) => `<span class="font-mono text-[11px] font-medium text-zinc-900 bg-zinc-100 px-1.5 py-0.5 rounded">${cleanLatex(math)}</span>`)
+          .replace(/\$([^$\n]+)\$/g, (_, math) => `<span class="font-mono text-[11px] font-medium text-zinc-900 bg-zinc-100 px-1 py-0.5 rounded">${cleanLatex(math)}</span>`)
+          .replace(/\\\((.+?)\\\)/g, (_, math) => `<span class="font-mono text-[11px] font-medium text-zinc-900 bg-zinc-100 px-1 py-0.5 rounded">${cleanLatex(math)}</span>`);
+
+        return out.replace(/\u0000LINK(\d+)\u0000/g, (_, i) => links[Number(i)]);
+      }
+
+      function closeLists() {
+        if (inUl) { html += "</ul>"; inUl = false; }
+        if (inOl) { html += "</ol>"; inOl = false; }
+      }
+
+      function isTableRow(line) {
+        return line.startsWith("|") && line.endsWith("|") && line.length > 2;
+      }
+
+      function isTableSeparator(line) {
+        return /^\|[\s:\-\|]+\|$/.test(line);
+      }
+
+      function parseTableCells(line) {
+        return line.slice(1, -1).split("|").map((c) => c.trim());
+      }
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) {
+          closeLists();
+          continue;
+        }
+
+        if (/^(-{3,}|\*{3,})$/.test(line)) {
+          closeLists();
+          html += '<hr class="my-2.5 border-zinc-200/80" />';
+          continue;
+        }
+
+        const blockMathMatch = line.match(/^(?:\$\$(.+)\$\$|\\\[(.+)\\\])$/);
+        if (blockMathMatch) {
+          closeLists();
+          const expr = cleanLatex(blockMathMatch[1] || blockMathMatch[2] || "");
+          html += `<div class="my-2 px-3 py-2 rounded-xl bg-zinc-50 border border-zinc-200/80 font-mono text-xs font-medium text-zinc-900 text-center overflow-x-auto">${expr}</div>`;
+          continue;
+        }
+
+        if (isTableRow(line) && i + 1 < lines.length && isTableSeparator(lines[i + 1].trim())) {
+          closeLists();
+          const headers = parseTableCells(line);
+          i += 1;
+          let tableHtml = '<div class="w-full max-w-full overflow-x-auto my-2 rounded-xl border border-zinc-200/80"><table class="w-full text-left border-collapse text-xs break-normal [overflow-wrap:normal]">';
+          tableHtml += '<thead class="bg-zinc-50 border-b border-zinc-200/80"><tr>';
+          headers.forEach((h) => {
+            tableHtml += `<th class="px-2.5 py-1.5 font-semibold text-zinc-800 align-bottom leading-snug">${inlineFormat(h)}</th>`;
+          });
+          tableHtml += '</tr></thead><tbody class="divide-y divide-zinc-100 bg-white">';
+          while (i + 1 < lines.length && isTableRow(lines[i + 1].trim())) {
+            i += 1;
+            const cells = parseTableCells(lines[i].trim());
+            tableHtml += '<tr>';
+            headers.forEach((_, colIdx) => {
+              tableHtml += `<td class="px-2.5 py-1.5 text-zinc-700 align-top whitespace-nowrap sm:whitespace-normal">${inlineFormat(cells[colIdx] || "")}</td>`;
+            });
+            tableHtml += '</tr>';
+          }
+          tableHtml += '</tbody></table></div>';
+          html += tableHtml;
+          continue;
+        }
+
+        const ulMatch = line.match(/^[\*\-]\s+(.*)$/);
+        const olMatch = line.match(/^(\d+)\.\s+(.*)$/);
+        const hMatch = line.match(/^(#{1,3})\s+(.*)$/);
+
+        if (ulMatch) {
+          if (inOl) { html += "</ol>"; inOl = false; }
+          if (!inUl) { html += '<ul class="list-disc pl-4 space-y-1 my-1.5">'; inUl = true; }
+          html += `<li>${inlineFormat(ulMatch[1])}</li>`;
+        } else if (olMatch) {
+          if (inUl) { html += "</ul>"; inUl = false; }
+          if (!inOl) { html += '<ol class="list-decimal pl-4 space-y-1 my-1.5">'; inOl = true; }
+          html += `<li value="${olMatch[1]}">${inlineFormat(olMatch[2])}</li>`;
+        } else if (hMatch) {
+          closeLists();
+          const level = hMatch[1].length;
+          const cls = level === 1 ? "text-sm font-semibold text-zinc-900 mt-2.5 mb-1" : "text-xs font-semibold text-zinc-900 mt-2 mb-1";
+          html += `<div class="${cls}">${inlineFormat(hMatch[2])}</div>`;
+        } else {
+          closeLists();
+          html += `<p class="my-1 first:mt-0 last:mb-0">${inlineFormat(line)}</p>`;
+        }
+      }
+      closeLists();
+      return html;
+    }
+
+    async function checkAuth() {
+      const token = getToken();
+      if (!token) return showLogin();
+      try {
+        const res = await fetch("/api/auth/me", { headers: { Authorization: `Bearer ${token}` } });
+        if (!res.ok) throw new Error();
+        showDashboard();
+      } catch {
+        localStorage.removeItem("admin_token");
+        showLogin();
+      }
+    }
+
+    function showLogin() {
+      loginSection.classList.remove("hidden");
+      dashboardSection.classList.add("hidden");
+    }
+
+    function showDashboard() {
+      loginSection.classList.add("hidden");
+      dashboardSection.classList.remove("hidden");
+      loadRoles().then(loadDocuments);
+    }
+
+    loginForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      loginError.classList.add("hidden");
+      const username = document.getElementById("loginUsername").value.trim();
+      const password = document.getElementById("loginPassword").value;
+
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        loginError.textContent = data.detail || "Login gagal.";
+        loginError.classList.remove("hidden");
+        return;
+      }
+      localStorage.setItem("admin_token", data.token);
+      showDashboard();
+    });
+
+    logoutBtn.addEventListener("click", () => {
+      localStorage.removeItem("admin_token");
+      window.location.href = "/";
+    });
+
+    function authHeaders(json = false) {
+      const h = { Authorization: `Bearer ${getToken()}` };
+      if (json) h["Content-Type"] = "application/json";
+      return h;
+    }
+
+    function showRoleMsg(text, ok) {
+      const el = document.getElementById("roleMsg");
+      el.className = "mb-3 text-xs rounded-xl p-3 " + (ok
+        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+        : "bg-red-50 text-red-700 border border-red-200");
+      el.textContent = text;
+      el.classList.remove("hidden");
+      clearTimeout(showRoleMsg._t);
+      showRoleMsg._t = setTimeout(() => el.classList.add("hidden"), 4000);
+    }
+
+    function roleCheckboxHtml(r, checked, namePrefix) {
+      return `
+        <label class="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-700 bg-zinc-50 border border-zinc-200 rounded-lg px-2.5 py-1.5 cursor-pointer hover:border-indigo-300 transition">
+          <input type="checkbox" class="${namePrefix} accent-indigo-600" value="${r.id}" ${checked ? "checked" : ""} />
+          ${escapeHtml(r.name)}
+        </label>`;
+    }
+
+    function renderUploadRoleChecks() {
+      const box = document.getElementById("uploadRoleChecks");
+      const prev = new Set(
+        Array.from(box.querySelectorAll("input.upload-role:checked")).map((i) => Number(i.value))
+      );
+      const firstRender = box.children.length === 0;
+      box.innerHTML = allRoles
+        .map((r) => roleCheckboxHtml(r, firstRender ? r.name === PROTECTED_ROLE : prev.has(r.id), "upload-role"))
+        .join("");
+    }
+
+    function renderAdminChatRoles() {
+      const sel = document.getElementById("adminChatRole");
+      const keep = sel.value;
+      sel.innerHTML = allRoles
+        .map((r) => `<option value="${escapeHtml(r.name)}">${escapeHtml(r.name)}</option>`)
+        .join("");
+      sel.value = allRoles.some((r) => r.name === keep) ? keep : (allRoles[0] ? allRoles[0].name : "");
+    }
+
+    function renderRoleList() {
+      const list = document.getElementById("roleList");
+      if (allRoles.length === 0) {
+        list.innerHTML = '<div class="py-4 text-center text-xs text-zinc-400">Belum ada role.</div>';
+        return;
+      }
+      list.innerHTML = allRoles.map((r) => {
+        const isBase = r.name === PROTECTED_ROLE;
+        const desc = r.description ? `<div class="text-[11px] text-zinc-500 mt-0.5 break-words">${escapeHtml(r.description)}</div>` : "";
+        const baseBadge = isBase ? '<span class="text-[10px] bg-zinc-100 text-zinc-600 border border-zinc-200 px-1.5 py-0.5 rounded font-medium">Bawaan</span>' : "";
+        const delBtn = isBase
+          ? ""
+          : `<button type="button" onclick="deleteRole(${r.id})" class="text-xs text-red-600 hover:bg-red-50 font-medium px-2 py-1.5 rounded-lg transition cursor-pointer">Hapus</button>`;
+        return `
+          <div class="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="text-sm font-medium text-zinc-900">${escapeHtml(r.name)}</span>
+                ${baseBadge}
+                <span class="text-[11px] text-zinc-400">${r.document_count || 0} dokumen</span>
+              </div>
+              ${desc}
+            </div>
+            <div class="flex items-center gap-1 shrink-0">
+              <button type="button" onclick="openRoleEdit(${r.id})" class="text-xs text-indigo-600 hover:bg-indigo-50 font-medium px-2 py-1.5 rounded-lg transition cursor-pointer">Ubah</button>
+              ${delBtn}
+            </div>
+          </div>`;
+      }).join("");
+    }
+
+    async function loadRoles() {
+      try {
+        const res = await fetch("/api/roles");
+        const data = await res.json();
+        allRoles = data.roles || [];
+      } catch {
+        allRoles = [];
+      }
+      renderRoleList();
+      renderUploadRoleChecks();
+      renderAdminChatRoles();
+    }
+
+    document.getElementById("roleForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const name = document.getElementById("roleName").value.trim();
+      const description = document.getElementById("roleDesc").value.trim();
+      const res = await fetch("/api/roles", {
+        method: "POST",
+        headers: authHeaders(true),
+        body: JSON.stringify({ name, description }),
+      });
+      const data = await res.json();
+      if (!res.ok) return showRoleMsg(data.detail || "Gagal menambah role.", false);
+      document.getElementById("roleForm").reset();
+      showRoleMsg(`Role '${data.role.name}' berhasil ditambahkan.`, true);
+      await loadRoles();
+    });
+
+    window.openRoleEdit = function (id) {
+      const r = allRoles.find((x) => x.id === id);
+      if (!r) return;
+      document.getElementById("editRoleId").value = r.id;
+      document.getElementById("editRoleName").value = r.name;
+      document.getElementById("editRoleName").disabled = r.name === PROTECTED_ROLE;
+      document.getElementById("editRoleDesc").value = r.description || "";
+      document.getElementById("editRoleError").classList.add("hidden");
+      document.getElementById("roleEditModal").classList.remove("hidden");
+    };
+
+    window.closeRoleEdit = function () {
+      document.getElementById("roleEditModal").classList.add("hidden");
+    };
+
+    window.saveRoleEdit = async function () {
+      const id = document.getElementById("editRoleId").value;
+      const errEl = document.getElementById("editRoleError");
+      const res = await fetch(`/api/roles/${id}`, {
+        method: "PUT",
+        headers: authHeaders(true),
+        body: JSON.stringify({
+          name: document.getElementById("editRoleName").value.trim(),
+          description: document.getElementById("editRoleDesc").value.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        errEl.textContent = data.detail || "Gagal memperbarui role.";
+        errEl.classList.remove("hidden");
+        return;
+      }
+      closeRoleEdit();
+      showToast("Role berhasil diperbarui");
+      await loadRoles();
+      loadDocuments();
+    };
+
+    window.deleteRole = async function (id) {
+      const r = allRoles.find((x) => x.id === id);
+      if (!r) return;
+      if (!confirm(`Hapus role '${r.name}'?\nDokumen yang hanya terhubung ke role ini tidak akan bisa diakses siapa pun sampai role-nya diubah.`)) return;
+      const res = await fetch(`/api/roles/${id}`, { method: "DELETE", headers: authHeaders() });
+      const data = await res.json();
+      if (!res.ok) return showRoleMsg(data.detail || "Gagal menghapus role.", false);
+      showRoleMsg(data.message, true);
+      await loadRoles();
+      loadDocuments();
+    };
+
+    window.openDocRoles = function (docId) {
+      const d = currentDocs.find((x) => x.id === docId);
+      if (!d) return;
+      const have = new Set((d.roles || []).map((r) => r.id));
+      document.getElementById("docRolesDocId").value = d.id;
+      document.getElementById("docRolesTitle").textContent = d.title;
+      document.getElementById("docRolesChecks").innerHTML =
+        allRoles.map((r) => roleCheckboxHtml(r, have.has(r.id), "doc-role")).join("");
+      document.getElementById("docRolesError").classList.add("hidden");
+      document.getElementById("docRolesModal").classList.remove("hidden");
+    };
+
+    window.closeDocRoles = function () {
+      document.getElementById("docRolesModal").classList.add("hidden");
+    };
+
+    window.saveDocRoles = async function () {
+      const id = document.getElementById("docRolesDocId").value;
+      const ids = Array.from(document.querySelectorAll("#docRolesChecks input.doc-role:checked")).map((i) => Number(i.value));
+      const errEl = document.getElementById("docRolesError");
+      if (ids.length === 0) {
+        errEl.textContent = "Pilih minimal satu role.";
+        errEl.classList.remove("hidden");
+        return;
+      }
+      const res = await fetch(`/api/documents/${id}/roles`, {
+        method: "PUT",
+        headers: authHeaders(true),
+        body: JSON.stringify({ role_ids: ids }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        errEl.textContent = data.detail || "Gagal memperbarui akses.";
+        errEl.classList.remove("hidden");
+        return;
+      }
+      closeDocRoles();
+      showToast("Akses role dokumen diperbarui");
+      await loadRoles();
+      loadDocuments();
+    };
+
+    async function loadDocuments() {
+      const res = await fetch("/api/documents", {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      const data = await res.json();
+      const docs = data.documents || [];
+      currentDocs = docs;
+      document.getElementById("statDocs").textContent = docs.length;
+      document.getElementById("statChunks").textContent = docs.reduce((acc, d) => acc + (d.total_chunks || 0), 0);
+
+      docList.innerHTML = docs.length === 0
+        ? `<div class="py-12 text-center">
+             <div class="w-10 h-10 rounded-xl bg-zinc-100 text-zinc-400 flex items-center justify-center mx-auto mb-2.5">
+               <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+               </svg>
+             </div>
+             <p class="text-xs font-medium text-zinc-500">Belum ada dokumen yang diunggah</p>
+             <p class="text-[11px] text-zinc-400 mt-0.5">Unggah file pada panel di sebelah kiri.</p>
+           </div>`
+        : docs.map((d) => {
+            const isActive = d.is_active !== 0;
+            const fileBadge = `<span class="text-[11px] bg-indigo-50 text-indigo-700 border border-indigo-100 px-2 py-0.5 rounded-md font-medium">${escapeHtml(d.file_type.toUpperCase())}</span>`;
+            const statusBadge = isActive
+              ? ""
+              : `<span class="text-[11px] bg-amber-50 text-amber-700 border border-amber-200/80 px-2 py-0.5 rounded-md font-medium">Nonaktif</span>`;
+            const roleBadges = (d.roles && d.roles.length)
+              ? d.roles.map((r) => `<span class="text-[11px] bg-emerald-50 text-emerald-700 border border-emerald-200/80 px-2 py-0.5 rounded-md font-medium">${escapeHtml(r.name)}</span>`).join("")
+              : '<span class="text-[11px] bg-red-50 text-red-700 border border-red-200/80 px-2 py-0.5 rounded-md font-medium">Tanpa role</span>';
+            const toggleLabel = isActive ? "Nonaktifkan" : "Aktifkan";
+            const toggleCls = isActive
+              ? "text-xs text-amber-600 hover:bg-amber-50 font-medium px-2.5 py-1.5 rounded-lg transition cursor-pointer"
+              : "text-xs text-emerald-600 hover:bg-emerald-50 font-medium px-2.5 py-1.5 rounded-lg transition cursor-pointer";
+            return `
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-3.5 first:pt-0 last:pb-0 ${isActive ? "" : "opacity-65"}">
+                <div class="min-w-0 flex-1">
+                  <button type="button" onclick="viewChunks(${d.id})" class="text-left text-sm font-medium text-zinc-900 hover:text-indigo-600 transition cursor-pointer break-words">
+                    ${escapeHtml(d.title)}
+                  </button>
+                  <div class="text-xs text-zinc-500 mt-0.5">${d.total_chunks} chunks</div>
+                  <div class="flex flex-wrap gap-1 mt-1.5">${fileBadge}${roleBadges}${statusBadge}</div>
+                </div>
+                <div class="flex items-center gap-1.5 shrink-0">
+                  <button type="button" onclick="viewChunks(${d.id})"
+                    class="text-xs text-indigo-600 hover:bg-indigo-50 font-medium px-2.5 py-1.5 rounded-lg transition cursor-pointer">
+                    Lihat Chunks
+                  </button>
+                  <button type="button" onclick="openDocRoles(${d.id})"
+                    class="text-xs text-zinc-600 hover:bg-zinc-100 font-medium px-2.5 py-1.5 rounded-lg transition cursor-pointer">
+                    Ubah Role
+                  </button>
+                  <button type="button" onclick="toggleDocument(${d.id})"
+                    class="${toggleCls}">
+                    ${toggleLabel}
+                  </button>
+                  <button type="button" onclick="deleteDocument(${d.id}, '${escapeHtml(d.title)}')"
+                    class="text-xs text-red-600 hover:bg-red-50 font-medium px-2.5 py-1.5 rounded-lg transition cursor-pointer">
+                    Hapus
+                  </button>
+                </div>
+              </div>
+            `;
+          }).join("");
+    }
+
+    document.getElementById("uploadForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      uploadMsg.classList.add("hidden");
+
+      const selectedRoleIds = Array.from(document.querySelectorAll("#uploadRoleChecks input.upload-role:checked")).map((i) => Number(i.value));
+      if (selectedRoleIds.length === 0) {
+        uploadMsg.className = "mb-4 text-xs rounded-xl p-3 bg-red-50 text-red-700 border border-red-200";
+        uploadMsg.textContent = "Pilih minimal satu role yang boleh mengakses dokumen ini.";
+        uploadMsg.classList.remove("hidden");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("file", docFileInput.files[0]);
+      formData.append("title", document.getElementById("docTitle").value.trim());
+      formData.append("role_ids", JSON.stringify(selectedRoleIds));
+
+      const btn = document.getElementById("uploadBtn");
+      btn.disabled = true;
+      btn.textContent = "Memproses...";
+
+      try {
+        const res = await fetch("/api/documents/upload", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${getToken()}` },
+          body: formData,
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          uploadMsg.className = "mb-4 text-xs rounded-xl p-3 bg-red-50 text-red-700 border border-red-200";
+          uploadMsg.textContent = data.detail || "Gagal mengunggah dokumen.";
+        } else {
+          uploadMsg.className = "mb-4 text-xs rounded-xl p-3 bg-emerald-50 text-emerald-700 border border-emerald-200";
+          uploadMsg.textContent = data.message;
+          document.getElementById("uploadForm").reset();
+          loadRoles();
+          fileLabel.textContent = "Klik untuk pilih file PDF, DOCX, XLSX, CSV, atau TXT";
+          fileLabel.classList.remove("text-indigo-700");
+          loadDocuments();
+        }
+        uploadMsg.classList.remove("hidden");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Upload & Indeks Dokumen";
+      }
+    });
+
+    window.viewChunks = async function (docId) {
+      const modal = document.getElementById("chunksModal");
+      const titleEl = document.getElementById("modalDocTitle");
+      const metaEl = document.getElementById("modalDocMeta");
+      const listEl = document.getElementById("modalChunksList");
+
+      titleEl.textContent = "Memuat chunks...";
+      metaEl.textContent = "";
+      listEl.innerHTML = `<div class="text-xs text-zinc-500 py-8 text-center">Mengambil data chunk...</div>`;
+      modal.classList.remove("hidden");
+
+      try {
+        const res = await fetch(`/api/documents/${docId}/chunks`, {
+          headers: { Authorization: `Bearer ${getToken()}` },
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          listEl.innerHTML = `<div class="text-xs text-red-600 py-8 text-center">${escapeHtml(data.detail || "Gagal memuat chunks.")}</div>`;
+          return;
+        }
+        const doc = data.document;
+        const chunks = data.chunks || [];
+        titleEl.textContent = doc.title;
+        metaEl.textContent = `${doc.file_type.toUpperCase()} · ${chunks.length} chunks`;
+        listEl.innerHTML = chunks.length === 0
+          ? `<div class="text-xs text-zinc-500 py-8 text-center">Tidak ada chunk pada dokumen ini.</div>`
+          : chunks.map((c) => `
+              <div class="bg-white border border-zinc-200/80 rounded-xl p-3.5 shadow-[0_1px_2px_rgba(0,0,0,0.02)] min-w-0 overflow-hidden">
+                <div class="text-[11px] font-semibold text-indigo-600 mb-1.5">Chunk #${c.chunk_index + 1}</div>
+                <div class="text-xs text-zinc-700 leading-relaxed break-words [overflow-wrap:anywhere]">${formatMarkdown(c.text)}</div>
+              </div>
+            `).join("");
+      } catch {
+        listEl.innerHTML = `<div class="text-xs text-red-600 py-8 text-center">Gagal terhubung ke server.</div>`;
+      }
+    };
+
+    window.closeChunksModal = function () {
+      document.getElementById("chunksModal").classList.add("hidden");
+    };
+
+    document.getElementById("chunksModal").addEventListener("click", (e) => {
+      if (e.target.id === "chunksModal") closeChunksModal();
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        closeChunksModal();
+        closeChatModal();
+        closeRoleEdit();
+        closeDocRoles();
+      }
+    });
+
+    // ---------- Admin Chatbot Popup & Multi-Session History ----------
+    const CHAT_SESSIONS_KEY = "admin_chat_sessions";
+    const ACTIVE_SESSION_KEY = "admin_active_session_id";
+    const adminChatBox = document.getElementById("adminChatBox");
+    const adminHistoryPanel = document.getElementById("adminHistoryPanel");
+    const adminChatFooter = document.getElementById("adminChatFooter");
+    const toggleHistoryBtn = document.getElementById("toggleHistoryBtn");
+    const adminChatForm = document.getElementById("adminChatForm");
+    const adminQuestionInput = document.getElementById("adminQuestionInput");
+    const adminSendBtn = document.getElementById("adminSendBtn");
+    let showingHistory = false;
+
+    function getAdminSessions() {
+      try {
+        return JSON.parse(localStorage.getItem(CHAT_SESSIONS_KEY) || "[]");
+      } catch {
+        return [];
+      }
+    }
+
+    function saveAdminSessions(sessions) {
+      localStorage.setItem(CHAT_SESSIONS_KEY, JSON.stringify(sessions));
+    }
+
+    function getActiveSessionId() {
+      return localStorage.getItem(ACTIVE_SESSION_KEY) || "";
+    }
+
+    function setActiveSessionId(id) {
+      if (id) localStorage.setItem(ACTIVE_SESSION_KEY, id);
+      else localStorage.removeItem(ACTIVE_SESSION_KEY);
+    }
+
+    function getActiveMessages() {
+      const id = getActiveSessionId();
+      if (!id) return [];
+      const session = getAdminSessions().find((s) => s.id === id);
+      return session ? session.messages : [];
+    }
+
+    function pushMessageToActiveSession(msg) {
+      const sessions = getAdminSessions();
+      let id = getActiveSessionId();
+      let session = sessions.find((s) => s.id === id);
+
+      if (!session) {
+        id = "chat_" + Date.now();
+        session = {
+          id,
+          title: msg.role === "user" ? msg.text.slice(0, 48) : "Percakapan Baru",
+          updatedAt: new Date().toISOString(),
+          messages: [],
+        };
+        sessions.unshift(session);
+        setActiveSessionId(id);
+      }
+
+      session.messages.push(msg);
+      session.updatedAt = new Date().toISOString();
+      if (msg.role === "user" && session.messages.length === 1) {
+        session.title = msg.text.length > 48 ? msg.text.slice(0, 48) + "..." : msg.text;
+      }
+
+      // Pindahkan sesi aktif ke paling atas
+      const reordered = [session, ...sessions.filter((s) => s.id !== id)];
+      saveAdminSessions(reordered);
+    }
+
+    function appendAdminMessageEl(item) {
+      const wrapper = document.createElement("div");
+      if (item.role === "user") {
+        wrapper.className = "flex justify-end";
+        wrapper.innerHTML = `
+          <div class="bg-zinc-900 text-white rounded-2xl rounded-br-md px-3.5 py-2.5 max-w-[82%] shadow-xs">
+            <p class="text-xs leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]">${escapeHtml(item.text)}</p>
+          </div>
+        `;
+      } else {
+        wrapper.className = "flex justify-start items-start gap-2";
+        let sourcesHtml = "";
+        if (item.sources && item.sources.length > 0) {
+          const chips = item.sources.map((s) => `
+            <span class="inline-flex items-center gap-1 text-[11px] bg-zinc-50 text-zinc-700 px-2 py-1 rounded-lg border border-zinc-200/80">
+              <span class="font-medium truncate max-w-[180px]">${escapeHtml(s.title)}</span>
+              <span class="text-[10px] font-semibold text-zinc-400">${Math.round(s.score * 100)}%</span>
+            </span>
+          `).join("");
+          sourcesHtml = `
+            <div class="mt-2.5 pt-2 border-t border-zinc-100">
+              <div class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Sumber</div>
+              <div class="flex flex-wrap gap-1">${chips}</div>
+            </div>
+          `;
+        }
+        wrapper.innerHTML = `
+          <div class="w-6 h-6 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center shrink-0 mt-0.5">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+            </svg>
+          </div>
+          <div class="bg-white border border-zinc-200/80 rounded-2xl rounded-tl-md p-3.5 max-w-[calc(100%-2.25rem)] sm:max-w-[85%] min-w-0 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+            <div class="text-xs leading-relaxed text-zinc-800 break-words [overflow-wrap:anywhere]">${formatMarkdown(item.text)}</div>
+            ${sourcesHtml}
+          </div>
+        `;
+      }
+      adminChatBox.appendChild(wrapper);
+    }
+
+    function renderAdminChatHistory() {
+      const history = getActiveMessages();
+      if (history.length === 0) {
+        adminChatBox.innerHTML = `
+          <div id="adminChatEmpty" class="bg-white border border-zinc-200/80 rounded-xl p-5 text-center my-6">
+            <p class="text-xs font-medium text-zinc-700">Mulai percakapan baru</p>
+            <p class="text-[11px] text-zinc-400 mt-1">Setiap sesi percakapan otomatis tersimpan di menu Riwayat.</p>
+          </div>
+        `;
+      } else {
+        adminChatBox.innerHTML = "";
+        history.forEach(appendAdminMessageEl);
+        adminChatBox.scrollTop = adminChatBox.scrollHeight;
+      }
+    }
+
+    function formatSessionTime(iso) {
+      try {
+        return new Date(iso).toLocaleString("id-ID", {
+          day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit"
+        });
+      } catch {
+        return "";
+      }
+    }
+
+    function renderAdminSessionsList() {
+      const sessions = getAdminSessions();
+      const activeId = getActiveSessionId();
+
+      if (sessions.length === 0) {
+        adminHistoryPanel.innerHTML = `
+          <div class="bg-white border border-zinc-200/80 rounded-xl p-6 text-center my-6">
+            <p class="text-xs font-medium text-zinc-600">Belum ada riwayat percakapan</p>
+            <p class="text-[11px] text-zinc-400 mt-1">Mulai chat untuk menyimpan riwayat secara otomatis.</p>
+          </div>
+        `;
+        return;
+      }
+
+      adminHistoryPanel.innerHTML = `
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-semibold text-zinc-700">Riwayat Percakapan (${sessions.length})</span>
+          <button type="button" onclick="clearAllAdminSessions()" class="text-[11px] font-medium text-red-600 hover:underline cursor-pointer">
+            Hapus Semua
+          </button>
+        </div>
+      ` + sessions.map((s) => `
+        <div class="bg-white border ${s.id === activeId ? "border-indigo-300 ring-1 ring-indigo-500/20" : "border-zinc-200/80"} rounded-xl p-3 flex items-center justify-between gap-3 hover:border-indigo-200 transition">
+          <button type="button" onclick="openAdminSession('${s.id}')" class="flex-1 text-left min-w-0 cursor-pointer">
+            <div class="text-xs font-medium text-zinc-900 truncate">${escapeHtml(s.title)}</div>
+            <div class="text-[11px] text-zinc-400 mt-0.5">${s.messages.length} pesan · ${formatSessionTime(s.updatedAt)}</div>
+          </button>
+          <button type="button" onclick="deleteAdminSession('${s.id}')" class="text-[11px] text-zinc-400 hover:text-red-600 px-2 py-1 rounded-lg hover:bg-red-50 transition cursor-pointer shrink-0">
+            Hapus
+          </button>
+        </div>
+      `).join("");
+    }
+
+    window.toggleAdminHistoryView = function (forceState) {
+      showingHistory = typeof forceState === "boolean" ? forceState : !showingHistory;
+      if (showingHistory) {
+        renderAdminSessionsList();
+        adminHistoryPanel.classList.remove("hidden");
+        adminChatBox.classList.add("hidden");
+        adminChatFooter.classList.add("hidden");
+        toggleHistoryBtn.textContent = "Kembali ke Chat";
+      } else {
+        adminHistoryPanel.classList.add("hidden");
+        adminChatBox.classList.remove("hidden");
+        adminChatFooter.classList.remove("hidden");
+        toggleHistoryBtn.textContent = "Riwayat";
+        renderAdminChatHistory();
+      }
+    };
+
+    document.getElementById("adminChatRole").addEventListener("change", () => startNewAdminChat());
+
+    window.startNewAdminChat = function () {
+      setActiveSessionId("");
+      toggleAdminHistoryView(false);
+      setTimeout(() => adminQuestionInput.focus(), 50);
+    };
+
+    window.openAdminSession = function (id) {
+      setActiveSessionId(id);
+      toggleAdminHistoryView(false);
+    };
+
+    window.deleteAdminSession = function (id) {
+      const updated = getAdminSessions().filter((s) => s.id !== id);
+      saveAdminSessions(updated);
+      if (getActiveSessionId() === id) setActiveSessionId("");
+      renderAdminSessionsList();
+    };
+
+    window.clearAllAdminSessions = function () {
+      localStorage.removeItem(CHAT_SESSIONS_KEY);
+      setActiveSessionId("");
+      renderAdminSessionsList();
+      showToast("Semua riwayat chat dihapus");
+    };
+
+    window.openChatModal = function () {
+      toggleAdminHistoryView(false);
+      document.getElementById("chatModal").classList.remove("hidden");
+      setTimeout(() => adminQuestionInput.focus(), 50);
+    };
+
+    window.closeChatModal = function () {
+      document.getElementById("chatModal").classList.add("hidden");
+    };
+
+    document.getElementById("chatModal").addEventListener("click", (e) => {
+      if (e.target.id === "chatModal") closeChatModal();
+    });
+
+    adminChatForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const question = adminQuestionInput.value.trim();
+      if (!question) return;
+
+      const emptyState = document.getElementById("adminChatEmpty");
+      if (emptyState) emptyState.remove();
+
+      const userMsg = { role: "user", text: question };
+      pushMessageToActiveSession(userMsg);
+      appendAdminMessageEl(userMsg);
+
+      adminQuestionInput.value = "";
+      adminSendBtn.disabled = true;
+
+      const loadingEl = document.createElement("div");
+      loadingEl.id = "adminChatLoading";
+      loadingEl.className = "flex justify-start";
+      loadingEl.innerHTML = `
+        <div class="bg-white border border-zinc-200/80 rounded-2xl rounded-bl-md px-3.5 py-2.5 shadow-xs flex items-center gap-2 text-xs text-zinc-500">
+          <span class="inline-flex gap-1">
+            <span class="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce"></span>
+            <span class="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce [animation-delay:0.15s]"></span>
+            <span class="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce [animation-delay:0.3s]"></span>
+          </span>
+          <span>Menyusun jawaban...</span>
+        </div>
+      `;
+      adminChatBox.appendChild(loadingEl);
+      adminChatBox.scrollTop = adminChatBox.scrollHeight;
+
+      try {
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question, role: document.getElementById("adminChatRole").value || "mahasiswa" }),
+        });
+        const data = await res.json();
+        loadingEl.remove();
+
+        const botMsg = res.ok
+          ? { role: "bot", text: data.answer, sources: data.sources || [] }
+          : { role: "bot", text: data.detail || "Terjadi kesalahan pada server.", sources: [] };
+
+        pushMessageToActiveSession(botMsg);
+        appendAdminMessageEl(botMsg);
+      } catch {
+        loadingEl.remove();
+        const errMsg = { role: "bot", text: "Gagal terhubung ke server backend.", sources: [] };
+        pushMessageToActiveSession(errMsg);
+        appendAdminMessageEl(errMsg);
+      } finally {
+        adminChatBox.scrollTop = adminChatBox.scrollHeight;
+        adminSendBtn.disabled = false;
+        adminQuestionInput.focus();
+      }
+    });
+
+    window.toggleDocument = async function (id) {
+      const res = await fetch(`/api/documents/${id}/toggle`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      if (res.ok) {
+        loadDocuments();
+      }
+    };
+
+    window.deleteDocument = async function (id, title) {
+      if (!confirm(`Hapus dokumen '${title}'?`)) return;
+      const res = await fetch(`/api/documents/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      if (res.ok) {
+        showToast(`Dokumen '${title}' dihapus`);
+        loadDocuments();
+      }
+    };
+
+    window.openQuotaModal = function () {
+      document.getElementById("quotaModal").classList.remove("hidden");
+      loadGroqQuota();
+    };
+
+    window.closeQuotaModal = function () {
+      document.getElementById("quotaModal").classList.add("hidden");
+    };
+
+    document.getElementById("quotaModal").addEventListener("click", (e) => {
+      if (e.target.id === "quotaModal") closeQuotaModal();
+    });
+
+    window.loadGroqQuota = async function () {
+      const contentEl = document.getElementById("quotaContent");
+      const infoEl = document.getElementById("quotaModelInfo");
+      contentEl.innerHTML = '<div class="text-center text-xs text-zinc-400 py-8">Memuat data kuota...</div>';
+
+      try {
+        const res = await fetch("/api/admin/groq-quota", {
+          headers: { Authorization: `Bearer ${getToken()}` },
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          contentEl.innerHTML = `<div class="text-center text-xs text-red-600 py-6">${escapeHtml(data.detail || "Gagal memuat kuota.")}</div>`;
+          return;
+        }
+
+        const activeModel = (data.latest && data.latest.model) || data.configured_model;
+        infoEl.textContent = `Model: ${activeModel} • ${data.has_api_key ? "API Key Aktif" : "API Key Belum Diatur"}`;
+
+        const latest = data.latest;
+        const reqLimit = latest && latest.limit_requests ? latest.limit_requests : 0;
+        const reqRem = latest && latest.remaining_requests != null ? latest.remaining_requests : 0;
+        const reqPct = reqLimit > 0 ? Math.min(100, Math.round((reqRem / reqLimit) * 100)) : 0;
+
+        const tokLimit = latest && latest.limit_tokens ? latest.limit_tokens : 0;
+        const tokRem = latest && latest.remaining_tokens != null ? latest.remaining_tokens : 0;
+        const tokPct = tokLimit > 0 ? Math.min(100, Math.round((tokRem / tokLimit) * 100)) : 0;
+
+        const rateLimitHtml = latest
+          ? `
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div class="bg-white border border-zinc-200/80 rounded-xl p-4">
+                <div class="flex items-center justify-between text-xs font-medium text-zinc-600">
+                  <span>Sisa Request (RPD)</span>
+                  <span class="text-zinc-900 font-semibold">${reqRem.toLocaleString("id-ID")} / ${reqLimit.toLocaleString("id-ID")}</span>
+                </div>
+                <div class="w-full h-2 bg-zinc-100 rounded-full overflow-hidden mt-2.5">
+                  <div class="h-full ${reqPct > 25 ? "bg-indigo-600" : "bg-amber-500"} rounded-full transition-all" style="width: ${reqPct}%"></div>
+                </div>
+                <div class="flex items-center justify-between text-[11px] text-zinc-400 mt-2">
+                  <span>${reqPct}% tersisa</span>
+                  <span>Reset: ${escapeHtml(latest.reset_requests_label || latest.reset_requests || "-")}</span>
+                </div>
+              </div>
+
+              <div class="bg-white border border-zinc-200/80 rounded-xl p-4">
+                <div class="flex items-center justify-between text-xs font-medium text-zinc-600">
+                  <span>Sisa Token (TPM)</span>
+                  <span class="text-zinc-900 font-semibold">${tokRem.toLocaleString("id-ID")} / ${tokLimit.toLocaleString("id-ID")}</span>
+                </div>
+                <div class="w-full h-2 bg-zinc-100 rounded-full overflow-hidden mt-2.5">
+                  <div class="h-full ${tokPct > 25 ? "bg-emerald-500" : "bg-amber-500"} rounded-full transition-all" style="width: ${tokPct}%"></div>
+                </div>
+                <div class="flex items-center justify-between text-[11px] text-zinc-400 mt-2">
+                  <span>${tokPct}% tersisa</span>
+                  <span>Reset: ${escapeHtml(latest.reset_tokens_label || latest.reset_tokens || "-")}</span>
+                </div>
+              </div>
+            </div>
+          `
+          : `
+            <div class="bg-amber-50 border border-amber-200/80 rounded-xl p-4 text-xs text-amber-800">
+              Belum ada request ke Groq API yang tercatat. Kirim minimal 1 pertanyaan di chatbot untuk melihat sisa kuota real-time dari header Groq.
+            </div>
+          `;
+
+        const statsHtml = `
+          <div class="grid grid-cols-3 gap-3">
+            <div class="bg-white border border-zinc-200/80 rounded-xl p-3.5">
+              <div class="text-[11px] text-zinc-500">Request Hari Ini</div>
+              <div class="text-lg font-semibold text-zinc-900 mt-0.5">${(data.today.requests_today || 0).toLocaleString("id-ID")}</div>
+            </div>
+            <div class="bg-white border border-zinc-200/80 rounded-xl p-3.5">
+              <div class="text-[11px] text-zinc-500">Token Hari Ini</div>
+              <div class="text-lg font-semibold text-zinc-900 mt-0.5">${(data.today.total_tokens_today || 0).toLocaleString("id-ID")}</div>
+            </div>
+            <div class="bg-white border border-zinc-200/80 rounded-xl p-3.5">
+              <div class="text-[11px] text-zinc-500">Total Request</div>
+              <div class="text-lg font-semibold text-zinc-900 mt-0.5">${(data.total.total_requests || 0).toLocaleString("id-ID")}</div>
+            </div>
+          </div>
+        `;
+
+        const logs = data.recent_logs || [];
+        const logsHtml = logs.length === 0
+          ? `<div class="text-center text-xs text-zinc-400 py-5">Belum ada riwayat pemanggilan Groq API.</div>`
+          : `
+            <div class="bg-white border border-zinc-200/80 rounded-xl overflow-hidden">
+              <div class="px-4 py-2.5 border-b border-zinc-100 text-xs font-semibold text-zinc-800">10 Request Terakhir</div>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse text-xs">
+                  <thead class="bg-zinc-50 border-b border-zinc-100 text-[11px] text-zinc-500">
+                    <tr>
+                      <th class="px-3.5 py-2 font-medium">Waktu</th>
+                      <th class="px-3.5 py-2 font-medium">Model</th>
+                      <th class="px-3.5 py-2 font-medium">Token</th>
+                      <th class="px-3.5 py-2 font-medium">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-zinc-100">
+                    ${logs.map((l) => {
+                      const dt = new Date(l.created_at).toLocaleString("id-ID", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+                      const badge = l.status === "success"
+                        ? '<span class="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200/70 px-1.5 py-0.5 rounded font-medium">Sukses</span>'
+                        : '<span class="text-[10px] bg-red-50 text-red-700 border border-red-200/70 px-1.5 py-0.5 rounded font-medium">Error</span>';
+                      return `
+                        <tr>
+                          <td class="px-3.5 py-2 text-zinc-500 whitespace-nowrap">${escapeHtml(dt)}</td>
+                          <td class="px-3.5 py-2 text-zinc-800 font-mono text-[11px]">${escapeHtml(l.model)}</td>
+                          <td class="px-3.5 py-2 text-zinc-700 whitespace-nowrap">${(l.total_tokens || 0).toLocaleString("id-ID")}</td>
+                          <td class="px-3.5 py-2 whitespace-nowrap">${badge}</td>
+                        </tr>
+                      `;
+                    }).join("")}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          `;
+
+        contentEl.innerHTML = rateLimitHtml + statsHtml + logsHtml;
+      } catch {
+        contentEl.innerHTML = '<div class="text-center text-xs text-red-600 py-6">Gagal terhubung ke server.</div>';
+      }
+    };
+
+    checkAuth();
+  </script>
+</body>
+</html>

@@ -1,0 +1,32 @@
+# Panduan Internal Dosen: Kebijakan Penilaian dan Kerahasiaan Soal
+
+**DOKUMEN CONTOH UNTUK KEPERLUAN PRAKTIKUM.** Isi dokumen ini fiktif dan dibuat hanya untuk menguji pemisahan akses berbasis role (RBAC). Dokumen ini bukan kebijakan resmi Telkom University.
+
+Dokumen ini hanya ditujukan untuk role dosen. Informasi di dalamnya tidak boleh dibagikan kepada mahasiswa.
+
+## 1. Batas Waktu Pengunggahan Nilai
+
+* Nilai akhir mata kuliah wajib diunggah paling lambat 7 hari kerja setelah pelaksanaan UAS.
+* Dosen yang terlambat mengunggah nilai harus mengajukan surat keterlambatan kepada Ketua Program Studi.
+* Perubahan nilai setelah nilai dipublikasikan hanya boleh dilakukan melalui Berita Acara Perubahan Nilai yang ditandatangani Ketua Program Studi.
+
+## 2. Komposisi Bobot Penilaian Standar
+
+| Komponen | Bobot |
+| --- | --- |
+| Tugas dan Praktikum | 30% |
+| Kuis | 15% |
+| UTS | 25% |
+| UAS | 30% |
+
+Dosen boleh mengubah komposisi bobot dengan persetujuan Ketua Program Studi. Perubahan harus diumumkan kepada mahasiswa pada pertemuan pertama.
+
+## 3. Kerahasiaan Soal Ujian
+
+1. Naskah soal UTS dan UAS bersifat rahasia dan hanya boleh disimpan pada folder bersama dosen pengampu.
+2. Naskah soal wajib diserahkan kepada Ketua Program Studi paling lambat 2 minggu sebelum jadwal ujian.
+3. Dosen dilarang mengirim naskah soal melalui grup percakapan yang beranggotakan mahasiswa.
+
+## 4. Kode Rahasia Pengujian RBAC
+
+Kode verifikasi internal dosen untuk pengujian praktikum adalah **DOSEN-RBAC-2026**. Kode ini hanya boleh muncul pada jawaban chatbot untuk role dosen.
